@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#0a1628">
+  <title>BPS — Breathe</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <!-- Setup View -->
+  <section id="setup" class="view active">
+    <h1>BPS</h1>
+    <p class="subtitle">Breathing & Meditation</p>
+
+    <div class="preset-bar">
+      <label for="preset-select">Preset</label>
+      <select id="preset-select">
+        <option value="custom">Custom</option>
+        <option value="box">Box Breathing (4-4-4-4)</option>
+        <option value="relaxing">Relaxing (4-7-8-0)</option>
+        <option value="simple">Simple (4-0-6-0)</option>
+      </select>
+      <button id="save-preset-btn" class="btn-small">Save</button>
+      <button id="delete-preset-btn" class="btn-small btn-danger" hidden>Delete</button>
+    </div>
+
+    <div class="sliders">
+      <div class="slider-group">
+        <label>Inhale <span id="inhale-val">4</span>s</label>
+        <input type="range" id="inhale" min="1" max="20" value="4" step="0.5">
+      </div>
+      <div class="slider-group">
+        <label>Hold <span id="hold-in-val">4</span>s</label>
+        <input type="range" id="hold-in" min="0" max="20" value="4" step="0.5">
+      </div>
+      <div class="slider-group">
+        <label>Exhale <span id="exhale-val">4</span>s</label>
+        <input type="range" id="exhale" min="1" max="20" value="4" step="0.5">
+      </div>
+      <div class="slider-group">
+        <label>Hold <span id="hold-out-val">4</span>s</label>
+        <input type="range" id="hold-out" min="0" max="20" value="4" step="0.5">
+      </div>
+    </div>
+
+    <div class="time-picker">
+      <label for="duration">Session Duration</label>
+      <select id="duration">
+        <option value="60">1 min</option>
+        <option value="120">2 min</option>
+        <option value="180">3 min</option>
+        <option value="300" selected>5 min</option>
+        <option value="600">10 min</option>
+        <option value="900">15 min</option>
+        <option value="1200">20 min</option>
+        <option value="1800">30 min</option>
+      </select>
+    </div>
+
+    <div class="style-pickers">
+      <div class="style-picker">
+        <label for="anim-style">Animation</label>
+        <select id="anim-style">
+          <option value="minimal">Minimal</option>
+          <option value="ripple">Ripple</option>
+          <option value="orb">Color Orb</option>
+          <option value="particles">Particles</option>
+          <option value="lotus">Lotus</option>
+        </select>
+      </div>
+      <div class="style-picker">
+        <label for="sound-style">Sound</label>
+        <select id="sound-style">
+          <option value="simple">Simple</option>
+          <option value="bowl">Singing Bowl</option>
+          <option value="warm">Warm Pad</option>
+          <option value="rain">Rain</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="mantra-section">
+      <label for="mantra-input">Mantras <span class="hint">(one per line)</span></label>
+      <textarea id="mantra-input" rows="3" placeholder="I am calm and centered&#10;This moment is enough"></textarea>
+      <div class="mantra-mode">
+        <label><input type="radio" name="mantra-mode" value="static" checked> Show all</label>
+        <label><input type="radio" name="mantra-mode" value="cycle"> Cycle each breath</label>
+      </div>
+    </div>
+
+    <button id="begin-btn" class="btn-primary">Begin</button>
+  </section>
+
+  <!-- Session View -->
+  <section id="session" class="view">
+    <div class="session-timer" id="session-timer">5:00</div>
+
+    <div class="circle-container">
+      <div class="breathing-circle" id="breathing-circle">
+        <span class="phase-label" id="phase-label">Breathe In</span>
+      </div>
+    </div>
+
+    <div class="mantra-display" id="mantra-display"></div>
+
+    <div class="session-controls">
+      <button id="pause-btn" class="btn-secondary">Pause</button>
+      <button id="end-btn" class="btn-secondary btn-danger">End</button>
+    </div>
+  </section>
+
+  <!-- Complete View -->
+  <section id="complete" class="view">
+    <h1>Session Complete</h1>
+    <div class="summary">
+      <p>Duration: <span id="summary-duration"></span></p>
+      <p>Breath cycles: <span id="summary-cycles"></span></p>
+    </div>
+    <div class="complete-actions">
+      <button id="restart-btn" class="btn-primary">Repeat</button>
+      <button id="adjust-btn" class="btn-secondary">Adjust Settings</button>
+    </div>
+  </section>
+
+  <script type="module" src="js/app.js"></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js');
+    }
+  </script>
+</body>
+</html>
