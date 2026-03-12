@@ -1,48 +1,62 @@
 /**
- * DOM manipulation, view switching, breathing circle animation, mantra display.
+ * DOM manipulation, view/tab switching, session UI.
  */
 
 const $ = (sel) => document.querySelector(sel);
+const $$ = (sel) => document.querySelectorAll(sel);
 
-// View switching
-export function showView(viewId) {
-  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-  $(`#${viewId}`).classList.add('active');
+// ─── Tab Navigation ──────────────────────────────────────────────────────────
+
+export function showTab(tabId) {
+  $$('.tab-view').forEach(v => v.classList.remove('active'));
+  $$('.nav-tab').forEach(t => t.classList.remove('active'));
+
+  const tab = $(`#${tabId}`);
+  if (tab) tab.classList.add('active');
+
+  const navBtn = $(`.nav-tab[data-tab="${tabId}"]`);
+  if (navBtn) navBtn.classList.add('active');
 }
 
-// Breathing circle
-const circle = () => $('#breathing-circle');
-const phaseLabel = () => $('#phase-label');
+// ─── Overlays ────────────────────────────────────────────────────────────────
 
-export function animatePhase(phase, durationMs) {
-  const el = circle();
-  const dur = (durationMs / 1000).toFixed(2);
-
-  // Set transition duration to match phase
-  el.style.transitionDuration = `${dur}s`;
-
-  if (phase === 'inhale') {
-    el.classList.add('expanded');
-  } else if (phase === 'exhale') {
-    el.classList.remove('expanded');
-  }
-  // hold phases: keep current state, but make transition instant so it doesn't drift
-  if (phase === 'holdIn' || phase === 'holdOut') {
-    el.style.transitionDuration = '0s';
-  }
+export function showOverlay(id) {
+  $(`#${id}`).classList.add('active');
+  $('#bottom-nav').style.display = 'none';
 }
+
+export function hideOverlay(id) {
+  $(`#${id}`).classList.remove('active');
+  $('#bottom-nav').style.display = '';
+}
+
+export function showSession() {
+  showOverlay('session');
+}
+
+export function hideSession() {
+  hideOverlay('session');
+}
+
+export function showComplete() {
+  showOverlay('complete');
+}
+
+export function hideComplete() {
+  hideOverlay('complete');
+}
+
+// ─── Session Display ─────────────────────────────────────────────────────────
 
 export function setPhaseLabel(text) {
-  phaseLabel().textContent = text;
+  $('#phase-label').textContent = text;
 }
 
-export function resetCircle() {
-  const el = circle();
-  el.style.transitionDuration = '0s';
-  el.classList.remove('expanded');
+export function setFocusText(text) {
+  const el = $('#focus-text');
+  el.textContent = text || '';
 }
 
-// Timer display
 export function updateTimerDisplay(remainingMs) {
   const totalSec = Math.ceil(remainingMs / 1000);
   const min = Math.floor(totalSec / 60);
@@ -50,43 +64,13 @@ export function updateTimerDisplay(remainingMs) {
   $('#session-timer').textContent = `${min}:${sec.toString().padStart(2, '0')}`;
 }
 
-// Mantra
-let mantras = [];
-let mantraMode = 'static';
-let mantraIndex = 0;
-
-export function setMantras(lines, mode) {
-  mantras = lines.filter(l => l.trim());
-  mantraMode = mode;
-  mantraIndex = 0;
-  renderMantra();
+export function setPauseButton(isPaused) {
+  $('#pause-icon').style.display = isPaused ? 'none' : '';
+  $('#play-icon').style.display = isPaused ? '' : 'none';
 }
 
-export function advanceMantra() {
-  if (mantraMode !== 'cycle' || mantras.length <= 1) return;
-  const el = $('#mantra-display');
-  el.classList.add('fading');
-  setTimeout(() => {
-    mantraIndex = (mantraIndex + 1) % mantras.length;
-    renderMantra();
-    el.classList.remove('fading');
-  }, 300);
-}
+// ─── Summary ─────────────────────────────────────────────────────────────────
 
-function renderMantra() {
-  const el = $('#mantra-display');
-  if (mantras.length === 0) {
-    el.textContent = '';
-    return;
-  }
-  if (mantraMode === 'static') {
-    el.textContent = mantras.join('\n');
-  } else {
-    el.textContent = mantras[mantraIndex] || '';
-  }
-}
-
-// Summary
 export function showSummary(durationSec, cycles) {
   const min = Math.floor(durationSec / 60);
   const sec = Math.round(durationSec % 60);
@@ -94,7 +78,8 @@ export function showSummary(durationSec, cycles) {
   $('#summary-cycles').textContent = cycles;
 }
 
-// Slider display values
+// ─── Slider Display ──────────────────────────────────────────────────────────
+
 export function bindSlider(id, displayId) {
   const slider = $(`#${id}`);
   const display = $(`#${displayId}`);
@@ -103,7 +88,20 @@ export function bindSlider(id, displayId) {
   });
 }
 
-// Read setup form values
+// ─── Rate Summary ────────────────────────────────────────────────────────────
+
+export function updateRateSummary() {
+  const inhale = $(`#inhale`).value;
+  const holdIn = $(`#hold-in`).value;
+  const exhale = $(`#exhale`).value;
+  const holdOut = $(`#hold-out`).value;
+  const dur = $(`#duration`);
+  const durText = dur.options[dur.selectedIndex].text;
+  $('#rate-summary').textContent = `${inhale}/${holdIn}/${exhale}/${holdOut} · ${durText}`;
+}
+
+// ─── Rate Form ───────────────────────────────────────────────────────────────
+
 export function getSetupValues() {
   return {
     inhale: parseFloat($('#inhale').value),
@@ -111,9 +109,6 @@ export function getSetupValues() {
     exhale: parseFloat($('#exhale').value),
     holdOut: parseFloat($('#hold-out').value),
     totalSeconds: parseInt($('#duration').value, 10),
-    mantras: $('#mantra-input').value.split('\n'),
-    mantraMode: document.querySelector('input[name="mantra-mode"]:checked').value,
-    animStyle: $('#anim-style').value,
     soundStyle: $('#sound-style').value,
   };
 }
@@ -124,16 +119,52 @@ export function setSetupValues(vals) {
   if (vals.exhale != null) { $('#exhale').value = vals.exhale; $('#exhale-val').textContent = vals.exhale; }
   if (vals.holdOut != null) { $('#hold-out').value = vals.holdOut; $('#hold-out-val').textContent = vals.holdOut; }
   if (vals.totalSeconds != null) $('#duration').value = vals.totalSeconds;
-  if (vals.mantras != null) $('#mantra-input').value = Array.isArray(vals.mantras) ? vals.mantras.join('\n') : vals.mantras;
-  if (vals.mantraMode != null) {
-    const radio = document.querySelector(`input[name="mantra-mode"][value="${vals.mantraMode}"]`);
-    if (radio) radio.checked = true;
-  }
-  if (vals.animStyle != null) $('#anim-style').value = vals.animStyle;
   if (vals.soundStyle != null) $('#sound-style').value = vals.soundStyle;
+  updateRateSummary();
 }
 
-// Pause button text
-export function setPauseButton(isPaused) {
-  $('#pause-btn').textContent = isPaused ? 'Resume' : 'Pause';
+// ─── Exercise List ───────────────────────────────────────────────────────────
+
+export function renderExercises(exercises, { onStart, onMantraChange }) {
+  const list = $('#exercise-list');
+  list.innerHTML = '';
+
+  for (const ex of exercises) {
+    const card = document.createElement('div');
+    card.className = `exercise-card${ex.isMantra ? ' mantra-card' : ''}`;
+    card.id = `exercise-${ex.id}`;
+
+    if (ex.isMantra) {
+      card.innerHTML = `
+        <div class="exercise-card-name">${ex.name}</div>
+        <div class="exercise-card-desc">${ex.description}</div>
+        <div class="mantra-input-wrapper">
+          <textarea class="mantra-textarea" placeholder="Type your mantra or focus text here…">${ex.focusText && ex.focusText !== 'Enter your mantra in the exercises tab…' ? ex.focusText : ''}</textarea>
+          <button class="mantra-start-btn">Start with mantra</button>
+        </div>
+      `;
+
+      const textarea = card.querySelector('.mantra-textarea');
+      const startBtn = card.querySelector('.mantra-start-btn');
+
+      // Stop card click from firing when interacting with textarea
+      textarea.addEventListener('click', e => e.stopPropagation());
+      textarea.addEventListener('input', () => {
+        onMantraChange(textarea.value);
+      });
+
+      startBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        onStart(ex.id, textarea.value);
+      });
+    } else {
+      card.innerHTML = `
+        <div class="exercise-card-name">${ex.name}</div>
+        <div class="exercise-card-desc">${ex.description}</div>
+      `;
+      card.addEventListener('click', () => onStart(ex.id, ex.focusText));
+    }
+
+    list.appendChild(card);
+  }
 }

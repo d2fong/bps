@@ -7,57 +7,273 @@ import * as audio from './audio.js';
 import * as ui from './ui.js';
 import * as storage from './storage.js';
 import { createAnimation } from './animations.js';
+import { getExercises, setMantraText } from './exercises.js';
 
 let timer = null;
 let animation = null;
 let wakeLock = null;
 let sessionStartedAt = 0;
+let activeExerciseText = '';
 
-// --- Setup ---
+// ─── Init ────────────────────────────────────────────────────────────────────
 
+// Bind sliders
 ui.bindSlider('inhale', 'inhale-val');
 ui.bindSlider('hold-in', 'hold-in-val');
 ui.bindSlider('exhale', 'exhale-val');
 ui.bindSlider('hold-out', 'hold-out-val');
 
-// Load last-used settings
+// Restore last-used settings
 const last = storage.loadLastUsed();
 if (last) ui.setSetupValues(last);
 
-// Preset selector
-const presetSelect = document.getElementById('preset-select');
-const deletePresetBtn = document.getElementById('delete-preset-btn');
+// Restore options
+const opts = storage.loadOptions();
+if (opts.soundStyle) document.getElementById('sound-style').value = opts.soundStyle;
+if (opts.barStyle) document.getElementById('bar-style').value = opts.barStyle;
 
-function refreshPresetOptions() {
-  presetSelect.querySelectorAll('option[data-user]').forEach(o => o.remove());
-  const userPresets = storage.getUserPresets();
-  for (const name of Object.keys(userPresets)) {
-    const opt = document.createElement('option');
-    opt.value = `user:${name}`;
-    opt.textContent = name;
-    opt.dataset.user = '1';
-    presetSelect.appendChild(opt);
+// ─── Bar Style ───────────────────────────────────────────────────────────────
+
+const BAR_STYLE_CLASSES = ['bar-aurora', 'bar-gradient', 'bar-phase', 'bar-pulse'];
+
+function applyBarStyle(style) {
+  const fills = [
+    document.getElementById('preview-bar-fill'),
+    document.getElementById('breathing-bar-fill'),
+  ];
+  for (const fill of fills) {
+    if (!fill) continue;
+    fill.classList.remove(...BAR_STYLE_CLASSES);
+    if (style && style !== 'classic') {
+      fill.classList.add(`bar-${style}`);
+    }
   }
 }
 
-refreshPresetOptions();
+// Apply bar style on load (default: aurora)
+applyBarStyle(opts.barStyle || 'aurora');
+if (!opts.barStyle) document.getElementById('bar-style').value = 'aurora';
 
-presetSelect.addEventListener('change', () => {
-  const val = presetSelect.value;
-  deletePresetBtn.hidden = !val.startsWith('user:');
-
-  if (val === 'custom') return;
-
-  let settings;
-  if (val.startsWith('user:')) {
-    const name = val.slice(5);
-    settings = storage.getUserPresets()[name];
-  } else {
-    settings = storage.getBuiltinPreset(val);
-  }
-  if (settings) ui.setSetupValues(settings);
+document.getElementById('bar-style').addEventListener('change', (e) => {
+  applyBarStyle(e.target.value);
+  storage.saveOptions({
+    soundStyle: document.getElementById('sound-style').value,
+    barStyle: e.target.value,
+  });
 });
 
+// Update rate summary on any slider/duration change
+document.querySelectorAll('#tab-rate input[type="range"]').forEach(slider => {
+  slider.addEventListener('input', () => {
+    ui.updateRateSummary();
+    restartPreviewBar();
+  });
+});
+document.getElementById('duration').addEventListener('change', () => ui.updateRateSummary());
+
+// Initial summary
+ui.updateRateSummary();
+
+// ─── Preview Breathing Bar (Exercises Tab) ───────────────────────────────────
+
+let previewTimeouts = [];
+let previewRunning = false;
+
+function getPreviewPhases() {
+  const inhale = parseFloat(document.getElementById('inhale').value);
+  const holdIn = parseFloat(document.getElementById('hold-in').value);
+  const exhale = parseFloat(document.getElementById('exhale').value);
+  const holdOut = parseFloat(document.getElementById('hold-out').value);
+  // Build phase sequence, skip 0-duration phases
+  const phases = [];
+  if (inhale > 0) phases.push({ type: 'inhale', duration: inhale });
+  if (holdIn > 0) phases.push({ type: 'holdIn', duration: holdIn });
+  if (exhale > 0) phases.push({ type: 'exhale', duration: exhale });
+  if (holdOut > 0) phases.push({ type: 'holdOut', duration: holdOut });
+  return phases;
+}
+
+function animatePreviewBar(phases) {
+  if (!previewRunning || phases.length === 0) return;
+  const fill = document.getElementById('preview-bar-fill');
+  if (!fill) return;
+
+  let delay = 0;
+
+  for (let i = 0; i < phases.length; i++) {
+    const phase = phases[i];
+    const tid = setTimeout(() => {
+      if (!previewRunning) return;
+      const dur = phase.duration;
+      // Play sound for this phase
+      audio.init();
+      audio.setProfile(document.getElementById('sound-style').value);
+      audio.playForPhase(phase.type);
+      // Set phase data attribute for phase-color style
+      fill.dataset.phase = phase.type;
+      if (phase.type === 'inhale') {
+        fill.style.transitionDuration = `${dur}s`;
+        fill.style.transitionTimingFunction = 'ease-in-out';
+        fill.style.height = '100%';
+      } else if (phase.type === 'exhale') {
+        fill.style.transitionDuration = `${dur}s`;
+        fill.style.transitionTimingFunction = 'ease-in-out';
+        fill.style.height = '0%';
+      } else {
+        // holdIn / holdOut — freeze
+        fill.style.transitionDuration = '0s';
+      }
+    }, delay * 1000);
+    previewTimeouts.push(tid);
+    delay += phase.duration;
+  }
+
+  // Loop: schedule next cycle after all phases complete
+  const loopTid = setTimeout(() => {
+    if (previewRunning) animatePreviewBar(phases);
+  }, delay * 1000);
+  previewTimeouts.push(loopTid);
+}
+
+function startPreviewBar() {
+  stopPreviewBar();
+  previewRunning = true;
+  // Reset fill instantly
+  const fill = document.getElementById('preview-bar-fill');
+  if (fill) {
+    fill.style.transitionDuration = '0s';
+    fill.style.height = '0%';
+  }
+  const phases = getPreviewPhases();
+  // Small delay to let the reset apply before starting animation
+  const tid = setTimeout(() => animatePreviewBar(phases), 50);
+  previewTimeouts.push(tid);
+}
+
+function stopPreviewBar() {
+  previewRunning = false;
+  previewTimeouts.forEach(tid => clearTimeout(tid));
+  previewTimeouts = [];
+  // Reset fill to 0% (exhaled state)
+  const fill = document.getElementById('preview-bar-fill');
+  if (fill) {
+    fill.style.transitionDuration = '0s';
+    fill.style.height = '0%';
+  }
+}
+
+function restartPreviewBar() {
+  startPreviewBar();
+}
+
+// Start preview on load
+startPreviewBar();
+
+// ─── Tab Navigation ──────────────────────────────────────────────────────────
+
+document.querySelectorAll('.nav-tab').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const tabId = btn.dataset.tab;
+    ui.showTab(tabId);
+  });
+});
+
+// ─── Exercises ───────────────────────────────────────────────────────────────
+
+function renderExerciseList() {
+  const exercises = getExercises();
+  ui.renderExercises(exercises, {
+    onStart(exerciseId, focusText) {
+      activeExerciseText = focusText || '';
+      startSession(activeExerciseText);
+    },
+    onMantraChange(text) {
+      setMantraText(text);
+    },
+  });
+}
+
+renderExerciseList();
+
+// ─── Presets ─────────────────────────────────────────────────────────────────
+
+const BUILTIN_PRESETS = [
+  { id: 'box', name: 'Box Breathing', pattern: '4/4/4/4' },
+  { id: 'relaxing', name: 'Relaxing', pattern: '4/7/8/0' },
+  { id: 'simple', name: 'Simple', pattern: '4/0/6/0' },
+  { id: 'beginner', name: 'Beginner', pattern: '5/0/7/0' },
+  { id: 'intermediate', name: 'Intermediate', pattern: '7/0/9/0' },
+  { id: 'advanced', name: 'Advanced', pattern: '12/0/14/0' },
+  { id: 'sleep', name: 'Before Sleep', pattern: '4/0/8/0' },
+];
+
+let activePresetId = null;
+
+function renderPresets() {
+  const grid = document.getElementById('preset-grid');
+  grid.innerHTML = '';
+
+  // Built-in presets
+  for (const preset of BUILTIN_PRESETS) {
+    const chip = document.createElement('button');
+    chip.className = `preset-chip${activePresetId === preset.id ? ' active' : ''}`;
+    chip.innerHTML = `
+      <div class="preset-chip-name">${preset.name}</div>
+      <div class="preset-chip-pattern">${preset.pattern}</div>
+    `;
+    chip.addEventListener('click', () => {
+      const settings = storage.getBuiltinPreset(preset.id);
+      if (settings) {
+        ui.setSetupValues(settings);
+        activePresetId = preset.id;
+        renderPresets();
+      }
+    });
+    grid.appendChild(chip);
+  }
+
+  // User presets
+  const userPresets = storage.getUserPresets();
+  for (const [name, settings] of Object.entries(userPresets)) {
+    const chip = document.createElement('button');
+    const key = `user:${name}`;
+    chip.className = `preset-chip preset-chip-user${activePresetId === key ? ' active' : ''}`;
+    const pattern = `${settings.inhale}/${settings.holdIn}/${settings.exhale}/${settings.holdOut}`;
+    chip.innerHTML = `
+      <div class="preset-chip-name">${name}</div>
+      <div class="preset-chip-pattern">${pattern}</div>
+      <button class="preset-delete" title="Delete preset">✕</button>
+    `;
+
+    chip.addEventListener('click', (e) => {
+      if (e.target.classList.contains('preset-delete')) return;
+      ui.setSetupValues(settings);
+      activePresetId = key;
+      renderPresets();
+    });
+
+    chip.querySelector('.preset-delete').addEventListener('click', (e) => {
+      e.stopPropagation();
+      storage.deleteUserPreset(name);
+      if (activePresetId === key) activePresetId = null;
+      renderPresets();
+    });
+
+    grid.appendChild(chip);
+  }
+}
+
+renderPresets();
+
+// Clear active preset when sliders are manually adjusted
+document.querySelectorAll('#tab-rate input[type="range"]').forEach(slider => {
+  slider.addEventListener('input', () => {
+    activePresetId = null;
+    renderPresets();
+  });
+});
+
+// Save preset
 document.getElementById('save-preset-btn').addEventListener('click', () => {
   const name = prompt('Preset name:');
   if (!name || !name.trim()) return;
@@ -69,47 +285,48 @@ document.getElementById('save-preset-btn').addEventListener('click', () => {
     holdOut: vals.holdOut,
     totalSeconds: vals.totalSeconds,
   });
-  refreshPresetOptions();
-  presetSelect.value = `user:${name.trim()}`;
-  deletePresetBtn.hidden = false;
+  activePresetId = `user:${name.trim()}`;
+  renderPresets();
 });
 
-deletePresetBtn.addEventListener('click', () => {
-  const val = presetSelect.value;
-  if (!val.startsWith('user:')) return;
-  const name = val.slice(5);
-  storage.deleteUserPreset(name);
-  presetSelect.value = 'custom';
-  deletePresetBtn.hidden = true;
-  refreshPresetOptions();
-});
+// ─── Options ─────────────────────────────────────────────────────────────────
 
-document.querySelectorAll('#setup input[type="range"]').forEach(slider => {
-  slider.addEventListener('input', () => {
-    presetSelect.value = 'custom';
-    deletePresetBtn.hidden = true;
+document.getElementById('sound-style').addEventListener('change', () => {
+  storage.saveOptions({
+    soundStyle: document.getElementById('sound-style').value,
+    barStyle: document.getElementById('bar-style').value,
   });
 });
 
-// --- Begin Session ---
+document.getElementById('reset-options-btn').addEventListener('click', () => {
+  if (!confirm('Reset all settings to defaults?')) return;
+  localStorage.clear();
+  location.reload();
+});
+
+// ─── Begin Session ───────────────────────────────────────────────────────────
 
 document.getElementById('begin-btn').addEventListener('click', () => {
+  startSession('');
+});
+
+function startSession(focusText) {
+  stopPreviewBar();
   const vals = ui.getSetupValues();
 
   // Save settings
   storage.saveLastUsed(vals);
 
-  // Init audio on user gesture (iOS requirement)
+  // Init audio
   audio.init();
   audio.setProfile(vals.soundStyle);
 
-  // Set up mantras
-  ui.setMantras(vals.mantras, vals.mantraMode);
+  // Set focus text
+  ui.setFocusText(focusText);
 
-  // Set up animation
+  // Set up bar animation
   if (animation) animation.destroy();
-  animation = createAnimation(vals.animStyle);
-  ui.resetCircle();
+  animation = createAnimation();
   animation.start();
 
   // Request wake lock
@@ -131,13 +348,14 @@ document.getElementById('begin-btn').addEventListener('click', () => {
         ui.setPhaseLabel(label);
         animation.animatePhase(phase, duration);
         audio.playForPhase(phase);
+        // Update phase data attribute for phase-color bar style
+        const sessionFill = document.getElementById('breathing-bar-fill');
+        if (sessionFill) sessionFill.dataset.phase = phase;
       },
       onTick(remainingMs) {
         ui.updateTimerDisplay(remainingMs);
       },
-      onCycleComplete() {
-        ui.advanceMantra();
-      },
+      onCycleComplete() {},
       onComplete() {
         completeSession();
       },
@@ -145,11 +363,16 @@ document.getElementById('begin-btn').addEventListener('click', () => {
   );
 
   ui.setPauseButton(false);
-  ui.showView('session');
-  timer.start();
-});
+  ui.showSession();
+  // Delay start so the browser paints the bar at 0% before inhale begins
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      timer.start();
+    });
+  });
+}
 
-// --- Session Controls ---
+// ─── Session Controls ────────────────────────────────────────────────────────
 
 document.getElementById('pause-btn').addEventListener('click', () => {
   if (!timer) return;
@@ -175,23 +398,25 @@ function completeSession() {
   audio.chimeComplete();
   ui.showSummary(elapsed, cycles);
   if (animation) { animation.destroy(); animation = null; }
-  ui.resetCircle();
-  ui.showView('complete');
+  ui.hideSession();
+  ui.showComplete();
   releaseWakeLock();
   timer = null;
 }
 
-// --- Complete Controls ---
+// ─── Complete Controls ───────────────────────────────────────────────────────
 
 document.getElementById('restart-btn').addEventListener('click', () => {
-  document.getElementById('begin-btn').click();
+  ui.hideComplete();
+  startSession(activeExerciseText);
 });
 
-document.getElementById('adjust-btn').addEventListener('click', () => {
-  ui.showView('setup');
+document.getElementById('back-btn').addEventListener('click', () => {
+  ui.hideComplete();
+  restartPreviewBar();
 });
 
-// --- Wake Lock ---
+// ─── Wake Lock ───────────────────────────────────────────────────────────────
 
 async function requestWakeLock() {
   try {

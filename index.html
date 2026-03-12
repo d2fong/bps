@@ -6,127 +6,204 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="theme-color" content="#0a1628">
+  <meta name="description" content="BPS — A premium breathing and meditation app with guided exercises and customizable breathing patterns.">
   <title>BPS — Breathe</title>
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
 
-  <!-- Setup View -->
-  <section id="setup" class="view active">
-    <h1>BPS</h1>
-    <p class="subtitle">Breathing & Meditation</p>
+  <!-- ═══ Tab Views ═══ -->
+  <main id="app">
 
-    <div class="preset-bar">
-      <label for="preset-select">Preset</label>
-      <select id="preset-select">
-        <option value="custom">Custom</option>
-        <option value="box">Box Breathing (4-4-4-4)</option>
-        <option value="relaxing">Relaxing (4-7-8-0)</option>
-        <option value="simple">Simple (4-0-6-0)</option>
-      </select>
-      <button id="save-preset-btn" class="btn-small">Save</button>
-      <button id="delete-preset-btn" class="btn-small btn-danger" hidden>Delete</button>
+    <!-- Global Preview Breathing Bar -->
+    <div class="preview-bar" id="preview-bar">
+      <div class="preview-bar-fill" id="preview-bar-fill"></div>
     </div>
 
-    <div class="sliders">
-      <div class="slider-group">
-        <label>Inhale <span id="inhale-val">4</span>s</label>
-        <input type="range" id="inhale" min="1" max="20" value="4" step="0.5">
+    <!-- Exercises Tab -->
+    <section id="tab-exercises" class="tab-view active">
+      <header class="tab-header">
+        <h1>Exercises</h1>
+        <p class="tab-subtitle">Choose a focus for your session</p>
+      </header>
+      <div id="exercise-list" class="exercise-list">
+        <!-- Populated by JS -->
       </div>
-      <div class="slider-group">
-        <label>Hold <span id="hold-in-val">4</span>s</label>
-        <input type="range" id="hold-in" min="0" max="20" value="4" step="0.5">
+    </section>
+
+    <!-- Rate Tab -->
+    <section id="tab-rate" class="tab-view">
+      <header class="tab-header">
+        <h1>Breathing Rate</h1>
+        <p class="tab-subtitle" id="rate-summary">7/0/9/0 · 5 min</p>
+      </header>
+
+      <div class="rate-controls">
+        <div class="slider-group">
+          <div class="slider-label">
+            <span>Inhale</span>
+            <span class="slider-value" id="inhale-val">7</span><span class="slider-unit">s</span>
+          </div>
+          <input type="range" id="inhale" min="1" max="20" value="7" step="0.5">
+        </div>
+        <div class="slider-group">
+          <div class="slider-label">
+            <span>Hold In</span>
+            <span class="slider-value" id="hold-in-val">0</span><span class="slider-unit">s</span>
+          </div>
+          <input type="range" id="hold-in" min="0" max="20" value="0" step="0.5">
+        </div>
+        <div class="slider-group">
+          <div class="slider-label">
+            <span>Exhale</span>
+            <span class="slider-value" id="exhale-val">9</span><span class="slider-unit">s</span>
+          </div>
+          <input type="range" id="exhale" min="1" max="20" value="9" step="0.5">
+        </div>
+        <div class="slider-group">
+          <div class="slider-label">
+            <span>Hold Out</span>
+            <span class="slider-value" id="hold-out-val">0</span><span class="slider-unit">s</span>
+          </div>
+          <input type="range" id="hold-out" min="0" max="20" value="0" step="0.5">
+        </div>
+
+        <div class="duration-picker">
+          <label for="duration">Session Duration</label>
+          <select id="duration">
+            <option value="60">1 min</option>
+            <option value="120">2 min</option>
+            <option value="180">3 min</option>
+            <option value="300" selected>5 min</option>
+            <option value="600">10 min</option>
+            <option value="900">15 min</option>
+            <option value="1200">20 min</option>
+            <option value="1800">30 min</option>
+          </select>
+        </div>
       </div>
-      <div class="slider-group">
-        <label>Exhale <span id="exhale-val">4</span>s</label>
-        <input type="range" id="exhale" min="1" max="20" value="4" step="0.5">
+
+      <div class="preset-section">
+        <h2>Presets</h2>
+        <div id="preset-grid" class="preset-grid">
+          <!-- Populated by JS -->
+        </div>
+        <div class="preset-actions">
+          <button id="save-preset-btn" class="btn-ghost">Save Current</button>
+        </div>
       </div>
-      <div class="slider-group">
-        <label>Hold <span id="hold-out-val">4</span>s</label>
-        <input type="range" id="hold-out" min="0" max="20" value="4" step="0.5">
+
+      <button id="begin-btn" class="btn-primary">Start Session</button>
+    </section>
+
+    <!-- Options Tab -->
+    <section id="tab-options" class="tab-view">
+      <header class="tab-header">
+        <h1>Options</h1>
+      </header>
+
+      <div class="options-list">
+        <div class="option-row">
+          <label for="sound-style">Sound Effect</label>
+          <select id="sound-style">
+            <option value="tibetan">Tibetan Bowl</option>
+            <option value="crystal">Crystal Bell</option>
+            <option value="deepcalm">Deep Calm</option>
+            <option value="simple">Simple</option>
+          </select>
+        </div>
+        <div class="option-row">
+          <label for="bar-style">Bar Style</label>
+          <select id="bar-style">
+            <option value="aurora">Aurora + Glow</option>
+            <option value="gradient">Gradient Shift</option>
+            <option value="phase">Phase Colors</option>
+            <option value="pulse">Pulse</option>
+            <option value="classic">Classic</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="options-footer">
+        <button id="reset-options-btn" class="btn-ghost btn-danger">Reset All Settings</button>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ═══ Session Overlay ═══ -->
+  <section id="session" class="overlay">
+    <div class="breathing-bar" id="breathing-bar">
+      <div class="breathing-bar-fill" id="breathing-bar-fill"></div>
+    </div>
+    <div class="session-content">
+      <div class="session-phase" id="phase-label">Breathe In</div>
+      <div class="session-focus" id="focus-text"></div>
+      <div class="session-timer" id="session-timer">5:00</div>
+      <div class="session-controls">
+        <button id="pause-btn" class="btn-glass">
+          <svg id="pause-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="6" y="4" width="4" height="16" rx="1"/>
+            <rect x="14" y="4" width="4" height="16" rx="1"/>
+          </svg>
+          <svg id="play-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none">
+            <polygon points="5,3 19,12 5,21"/>
+          </svg>
+        </button>
+        <button id="end-btn" class="btn-glass btn-glass-danger">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="3" width="18" height="18" rx="2"/>
+          </svg>
+        </button>
       </div>
     </div>
-
-    <div class="time-picker">
-      <label for="duration">Session Duration</label>
-      <select id="duration">
-        <option value="60">1 min</option>
-        <option value="120">2 min</option>
-        <option value="180">3 min</option>
-        <option value="300" selected>5 min</option>
-        <option value="600">10 min</option>
-        <option value="900">15 min</option>
-        <option value="1200">20 min</option>
-        <option value="1800">30 min</option>
-      </select>
-    </div>
-
-    <div class="style-pickers">
-      <div class="style-picker">
-        <label for="anim-style">Animation</label>
-        <select id="anim-style">
-          <option value="minimal">Minimal</option>
-          <option value="ripple">Ripple</option>
-          <option value="orb">Color Orb</option>
-          <option value="particles">Particles</option>
-          <option value="lotus">Lotus</option>
-        </select>
-      </div>
-      <div class="style-picker">
-        <label for="sound-style">Sound</label>
-        <select id="sound-style">
-          <option value="simple">Simple</option>
-          <option value="bowl">Singing Bowl</option>
-          <option value="warm">Warm Pad</option>
-          <option value="rain">Rain</option>
-        </select>
-      </div>
-    </div>
-
-    <div class="mantra-section">
-      <label for="mantra-input">Mantras <span class="hint">(one per line)</span></label>
-      <textarea id="mantra-input" rows="3" placeholder="I am calm and centered&#10;This moment is enough"></textarea>
-      <div class="mantra-mode">
-        <label><input type="radio" name="mantra-mode" value="static" checked> Show all</label>
-        <label><input type="radio" name="mantra-mode" value="cycle"> Cycle each breath</label>
-      </div>
-    </div>
-
-    <button id="begin-btn" class="btn-primary">Begin</button>
   </section>
 
-  <!-- Session View -->
-  <section id="session" class="view">
-    <div class="session-timer" id="session-timer">5:00</div>
-
-    <div class="circle-container">
-      <div class="breathing-circle" id="breathing-circle">
-        <span class="phase-label" id="phase-label">Breathe In</span>
+  <!-- ═══ Complete Overlay ═══ -->
+  <section id="complete" class="overlay">
+    <div class="complete-content">
+      <div class="complete-icon">✦</div>
+      <h1>Session Complete</h1>
+      <div class="summary">
+        <p>Duration: <span id="summary-duration"></span></p>
+        <p>Breath cycles: <span id="summary-cycles"></span></p>
+      </div>
+      <div class="complete-actions">
+        <button id="restart-btn" class="btn-primary">Repeat</button>
+        <button id="back-btn" class="btn-ghost">Back</button>
       </div>
     </div>
-
-    <div class="mantra-display" id="mantra-display"></div>
-
-    <div class="session-controls">
-      <button id="pause-btn" class="btn-secondary">Pause</button>
-      <button id="end-btn" class="btn-secondary btn-danger">End</button>
-    </div>
   </section>
 
-  <!-- Complete View -->
-  <section id="complete" class="view">
-    <h1>Session Complete</h1>
-    <div class="summary">
-      <p>Duration: <span id="summary-duration"></span></p>
-      <p>Breath cycles: <span id="summary-cycles"></span></p>
-    </div>
-    <div class="complete-actions">
-      <button id="restart-btn" class="btn-primary">Repeat</button>
-      <button id="adjust-btn" class="btn-secondary">Adjust Settings</button>
-    </div>
-  </section>
+  <!-- ═══ Bottom Navigation ═══ -->
+  <nav id="bottom-nav" class="bottom-nav">
+    <button class="nav-tab active" data-tab="tab-exercises">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+        <path d="M4 6h16M4 12h16M4 18h10"/>
+      </svg>
+      <span>Exercises</span>
+    </button>
+    <button class="nav-tab" data-tab="tab-rate">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+        <path d="M2 12C2 6.5 6.5 2 12 2a10 10 0 0 1 8.5 4.5"/>
+        <path d="M22 12c0 5.5-4.5 10-10 10a10 10 0 0 1-8.5-4.5"/>
+        <circle cx="12" cy="12" r="2"/>
+      </svg>
+      <span>Rate</span>
+    </button>
+    <button class="nav-tab" data-tab="tab-options">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+        <circle cx="12" cy="12" r="3"/>
+        <path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/>
+      </svg>
+      <span>Options</span>
+    </button>
+  </nav>
 
   <script type="module" src="js/app.js"></script>
   <script>
