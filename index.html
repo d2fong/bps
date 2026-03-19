@@ -16,34 +16,41 @@
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-
-  <!-- ═══ Tab Views ═══ -->
-  <main id="app">
-
-    <!-- Global Preview Breathing Bar -->
+  <!-- ═══ Background Layer (z-index 0) ═══ -->
+  <div id="background-layer" class="background-layer">
+    <div id="preview-visualizer" class="visualizer-overlay"></div>
     <div class="preview-bar" id="preview-bar">
       <div class="preview-bar-fill" id="preview-bar-fill"></div>
     </div>
+  </div>
+
+  <!-- ═══ UI Layer (z-index 1) ═══ -->
+  <div id="ui-layer" class="ui-layer">
+    <main id="app">
+
+
 
     <!-- Exercises Tab -->
-    <section id="tab-exercises" class="tab-view active">
-      <header class="tab-header">
+    <section id="tab-exercises" class="tab-view active minimized">
+      <header class="tab-header toggle-header" data-toggle="tab-exercises">
         <h1>Exercises</h1>
         <p class="tab-subtitle">Choose a focus for your session</p>
       </header>
-      <div id="exercise-list" class="exercise-list">
-        <!-- Populated by JS -->
+      <div class="tab-content">
+        <div id="exercise-list" class="exercise-list">
+          <!-- Populated by JS -->
+        </div>
       </div>
     </section>
 
     <!-- Rate Tab -->
-    <section id="tab-rate" class="tab-view">
-      <header class="tab-header">
+    <section id="tab-rate" class="tab-view minimized">
+      <header class="tab-header toggle-header" data-toggle="tab-rate">
         <h1>Breathing Rate</h1>
         <p class="tab-subtitle" id="rate-summary">7/0/9/0 · 5 min</p>
       </header>
-
-      <div class="rate-controls">
+      <div class="tab-content">
+        <div class="rate-controls">
         <div class="slider-group">
           <div class="slider-label">
             <span>Inhale</span>
@@ -98,39 +105,73 @@
         </div>
       </div>
 
-      <button id="begin-btn" class="btn-primary">Start Session</button>
+        <button id="begin-btn" class="btn-primary">Start Session</button>
+      </div>
     </section>
 
     <!-- Options Tab -->
-    <section id="tab-options" class="tab-view">
-      <header class="tab-header">
+    <section id="tab-options" class="tab-view minimized">
+      <header class="tab-header toggle-header" data-toggle="tab-options">
         <h1>Options</h1>
       </header>
+      <div class="tab-content">
+        <div class="options-list">
+          <div class="option-row">
+            <label for="sound-style">Sound Effect</label>
+            <select id="sound-style">
+              <option value="tibetan">Tibetan Bowl</option>
+              <option value="crystal">Crystal Bell</option>
+              <option value="deepcalm">Deep Calm</option>
+              <option value="simple">Simple</option>
+            </select>
+          </div>
+          <div class="option-row">
+            <label>Visual Experience</label>
+            <div class="segmented-control" id="viz-type-toggle">
+              <label>
+                <input type="radio" name="viz-type" value="bar" checked>
+                <span>Classic Bar</span>
+              </label>
+              <label>
+                <input type="radio" name="viz-type" value="immersive">
+                <span>Atmosphere</span>
+              </label>
+            </div>
+          </div>
 
-      <div class="options-list">
-        <div class="option-row">
-          <label for="sound-style">Sound Effect</label>
-          <select id="sound-style">
-            <option value="tibetan">Tibetan Bowl</option>
-            <option value="crystal">Crystal Bell</option>
-            <option value="deepcalm">Deep Calm</option>
-            <option value="simple">Simple</option>
-          </select>
-        </div>
-        <div class="option-row">
-          <label for="bar-style">Bar Style</label>
-          <select id="bar-style">
-            <option value="aurora">Aurora + Glow</option>
-            <option value="gradient">Gradient Shift</option>
-            <option value="phase">Phase Colors</option>
-            <option value="pulse">Pulse</option>
-            <option value="classic">Classic</option>
-          </select>
-        </div>
-      </div>
+          <div class="option-row" id="bar-styles-row">
+            <label for="bar-style-select">Bar Design</label>
+            <select id="bar-style-select">
+              <option value="aurora">Aurora + Glow</option>
+              <option value="gradient">Gradient Shift</option>
+              <option value="phase">Phase Colors</option>
+              <option value="pulse_classic">Pulse (Classic)</option>
+              <option value="classic">Classic</option>
+            </select>
+          </div>
 
-      <div class="options-footer">
-        <button id="reset-options-btn" class="btn-ghost btn-danger">Reset All Settings</button>
+          <div class="option-row" id="immersive-styles-row" style="display: none;">
+            <label for="immersive-style-select">Atmosphere</label>
+            <select id="immersive-style-select">
+              <option value="tide">Ocean Tide</option>
+              <option value="breeze">Breeze</option>
+              <option value="pulse">Liquid Pulse</option>
+              <option value="stack">Color Stack</option>
+              <option value="paper">Paper Waves</option>
+              <option value="burst">Abstract Burst</option>
+              <option value="fractal">Fractal Tree</option>
+              <option value="geometry">Sacred Geometry</option>
+            </select>
+          </div>
+
+          <!-- Hidden input to maintain compatibility with app.js / animations.js -->
+          <input type="hidden" id="bar-style" value="aurora">
+
+        </div>
+
+        <div class="options-footer">
+          <button id="reset-options-btn" class="btn-ghost btn-danger">Reset All Settings</button>
+        </div>
       </div>
     </section>
 
@@ -138,6 +179,7 @@
 
   <!-- ═══ Session Overlay ═══ -->
   <section id="session" class="overlay">
+    <div id="session-visualizer" class="visualizer-overlay"></div>
     <div class="breathing-bar" id="breathing-bar">
       <div class="breathing-bar-fill" id="breathing-bar-fill"></div>
     </div>
@@ -204,6 +246,7 @@
       <span>Options</span>
     </button>
   </nav>
+  </div> <!-- end #ui-layer -->
 
   <script type="module" src="js/app.js"></script>
   <script>

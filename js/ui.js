@@ -8,15 +8,35 @@ const $$ = (sel) => document.querySelectorAll(sel);
 // ─── Tab Navigation ──────────────────────────────────────────────────────────
 
 export function showTab(tabId) {
-  $$('.tab-view').forEach(v => v.classList.remove('active'));
+  const tab = $(`#${tabId}`);
+  const isAlreadyActive = tab && tab.classList.contains('active');
+
+  if (isAlreadyActive) {
+    // Toggle minimized if already active
+    tab.classList.toggle('minimized');
+    return;
+  }
+
+  $$('.tab-view').forEach(v => {
+    v.classList.remove('active');
+    v.classList.add('minimized'); // New tabs start minimized? No, let's make them expanded when switching.
+  });
   $$('.nav-tab').forEach(t => t.classList.remove('active'));
 
-  const tab = $(`#${tabId}`);
-  if (tab) tab.classList.add('active');
+  if (tab) {
+    tab.classList.add('active');
+    tab.classList.remove('minimized');
+  }
 
   const navBtn = $(`.nav-tab[data-tab="${tabId}"]`);
   if (navBtn) navBtn.classList.add('active');
 }
+
+export function toggleTab(tabId) {
+  const tab = $(`#${tabId}`);
+  if (tab) tab.classList.toggle('minimized');
+}
+
 
 // ─── Overlays ────────────────────────────────────────────────────────────────
 
@@ -78,6 +98,42 @@ export function showSummary(durationSec, cycles) {
   $('#summary-cycles').textContent = cycles;
 }
 
+// ─── Visualizer Settings ─────────────────────────────────────────────────────
+
+export function updateVisualizerUI() {
+  const type = $('input[name="viz-type"]:checked').value;
+  const barRow = $('#bar-styles-row');
+  const immersiveRow = $('#immersive-styles-row');
+  const barSelect = $('#bar-style-select');
+  const immersiveSelect = $('#immersive-style-select');
+  const hiddenInput = $('#bar-style');
+
+  if (type === 'bar') {
+    barRow.style.display = '';
+    immersiveRow.style.display = 'none';
+    hiddenInput.value = barSelect.value;
+  } else {
+    barRow.style.display = 'none';
+    immersiveRow.style.display = '';
+    hiddenInput.value = immersiveSelect.value;
+  }
+  
+  // Dispatch event so app.js listeners catch the change
+  hiddenInput.dispatchEvent(new Event('change'));
+}
+
+export function bindVisualizerSettings() {
+  const typeRadios = $$('input[name="viz-type"]');
+  const barSelect = $('#bar-style-select');
+  const immersiveSelect = $('#immersive-style-select');
+
+  typeRadios.forEach(r => r.addEventListener('change', updateVisualizerUI));
+  barSelect.addEventListener('change', updateVisualizerUI);
+  immersiveSelect.addEventListener('change', updateVisualizerUI);
+
+  updateVisualizerUI();
+}
+
 // ─── Slider Display ──────────────────────────────────────────────────────────
 
 export function bindSlider(id, displayId) {
@@ -110,6 +166,7 @@ export function getSetupValues() {
     holdOut: parseFloat($('#hold-out').value),
     totalSeconds: parseInt($('#duration').value, 10),
     soundStyle: $('#sound-style').value,
+    barStyle: $('#bar-style').value,
   };
 }
 
@@ -120,6 +177,20 @@ export function setSetupValues(vals) {
   if (vals.holdOut != null) { $('#hold-out').value = vals.holdOut; $('#hold-out-val').textContent = vals.holdOut; }
   if (vals.totalSeconds != null) $('#duration').value = vals.totalSeconds;
   if (vals.soundStyle != null) $('#sound-style').value = vals.soundStyle;
+  
+  if (vals.barStyle != null) {
+      const immersiveStyles = ['tide', 'breeze', 'pulse', 'stack', 'paper', 'burst', 'fractal', 'geometry'];
+      const isImmersive = immersiveStyles.includes(vals.barStyle);
+      $(`input[name="viz-type"][value="${isImmersive ? 'immersive' : 'bar'}"]`).checked = true;
+      if (isImmersive) {
+          $('#immersive-style-select').value = vals.barStyle;
+      } else {
+          $('#bar-style-select').value = vals.barStyle;
+      }
+      $('#bar-style').value = vals.barStyle;
+  }
+  
+  updateVisualizerUI();
   updateRateSummary();
 }
 

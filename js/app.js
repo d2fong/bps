@@ -15,6 +15,11 @@ let wakeLock = null;
 let sessionStartedAt = 0;
 let activeExerciseText = '';
 
+// Preview state
+let previewTimeouts = [];
+let previewRunning = false;
+let previewAnimation = null;
+
 // ─── Init ────────────────────────────────────────────────────────────────────
 
 // Bind sliders
@@ -29,12 +34,14 @@ if (last) ui.setSetupValues(last);
 
 // Restore options
 const opts = storage.loadOptions();
-if (opts.soundStyle) document.getElementById('sound-style').value = opts.soundStyle;
-if (opts.barStyle) document.getElementById('bar-style').value = opts.barStyle;
+ui.setSetupValues(opts);
+
+// Bind the new segmented visualizer controls
+ui.bindVisualizerSettings();
 
 // ─── Bar Style ───────────────────────────────────────────────────────────────
 
-const BAR_STYLE_CLASSES = ['bar-aurora', 'bar-gradient', 'bar-phase', 'bar-pulse'];
+const BAR_STYLE_CLASSES = ['bar-aurora', 'bar-gradient', 'bar-phase', 'bar-pulse_classic'];
 
 function applyBarStyle(style) {
   const fills = [
@@ -45,14 +52,19 @@ function applyBarStyle(style) {
     if (!fill) continue;
     fill.classList.remove(...BAR_STYLE_CLASSES);
     if (style && style !== 'classic') {
-      fill.classList.add(`bar-${style}`);
+      const cls = style === 'pulse' ? 'bar-pulse' : `bar-${style}`;
+      // Only add class if it's one of the classic CSS-only styles
+      if (BAR_STYLE_CLASSES.includes(cls)) {
+        fill.classList.add(cls);
+      }
     }
   }
+  // If we are in the middle of a preview, restart it to reflect the new visualizer
+  if (previewRunning) restartPreviewBar();
 }
 
 // Apply bar style on load (default: aurora)
 applyBarStyle(opts.barStyle || 'aurora');
-if (!opts.barStyle) document.getElementById('bar-style').value = 'aurora';
 
 document.getElementById('bar-style').addEventListener('change', (e) => {
   applyBarStyle(e.target.value);
@@ -76,9 +88,6 @@ ui.updateRateSummary();
 
 // ─── Preview Breathing Bar (Exercises Tab) ───────────────────────────────────
 
-let previewTimeouts = [];
-let previewRunning = false;
-
 function getPreviewPhases() {
   const inhale = parseFloat(document.getElementById('inhale').value);
   const holdIn = parseFloat(document.getElementById('hold-in').value);
@@ -98,6 +107,8 @@ function animatePreviewBar(phases) {
   const fill = document.getElementById('preview-bar-fill');
   if (!fill) return;
 
+  if (!previewAnimation) previewAnimation = createAnimation();
+
   let delay = 0;
 
   for (let i = 0; i < phases.length; i++) {
@@ -111,18 +122,8 @@ function animatePreviewBar(phases) {
       audio.playForPhase(phase.type);
       // Set phase data attribute for phase-color style
       fill.dataset.phase = phase.type;
-      if (phase.type === 'inhale') {
-        fill.style.transitionDuration = `${dur}s`;
-        fill.style.transitionTimingFunction = 'ease-in-out';
-        fill.style.height = '100%';
-      } else if (phase.type === 'exhale') {
-        fill.style.transitionDuration = `${dur}s`;
-        fill.style.transitionTimingFunction = 'ease-in-out';
-        fill.style.height = '0%';
-      } else {
-        // holdIn / holdOut — freeze
-        fill.style.transitionDuration = '0s';
-      }
+      
+      previewAnimation.animatePhase(phase.type, dur * 1000);
     }, delay * 1000);
     previewTimeouts.push(tid);
     delay += phase.duration;
@@ -138,12 +139,10 @@ function animatePreviewBar(phases) {
 function startPreviewBar() {
   stopPreviewBar();
   previewRunning = true;
-  // Reset fill instantly
-  const fill = document.getElementById('preview-bar-fill');
-  if (fill) {
-    fill.style.transitionDuration = '0s';
-    fill.style.height = '0%';
-  }
+  
+  if (!previewAnimation) previewAnimation = createAnimation();
+  previewAnimation.start();
+
   const phases = getPreviewPhases();
   // Small delay to let the reset apply before starting animation
   const tid = setTimeout(() => animatePreviewBar(phases), 50);
@@ -154,12 +153,7 @@ function stopPreviewBar() {
   previewRunning = false;
   previewTimeouts.forEach(tid => clearTimeout(tid));
   previewTimeouts = [];
-  // Reset fill to 0% (exhaled state)
-  const fill = document.getElementById('preview-bar-fill');
-  if (fill) {
-    fill.style.transitionDuration = '0s';
-    fill.style.height = '0%';
-  }
+  if (previewAnimation) previewAnimation.reset();
 }
 
 function restartPreviewBar() {
@@ -177,6 +171,14 @@ document.querySelectorAll('.nav-tab').forEach(btn => {
     ui.showTab(tabId);
   });
 });
+
+document.querySelectorAll('.toggle-header').forEach(header => {
+  header.addEventListener('click', () => {
+    const tabId = header.dataset.toggle;
+    ui.toggleTab(tabId);
+  });
+});
+
 
 // ─── Exercises ───────────────────────────────────────────────────────────────
 
