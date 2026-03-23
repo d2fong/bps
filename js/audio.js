@@ -6,10 +6,31 @@
 
 let ctx = null;
 
-export function init() {
-  if (ctx) return;
-  ctx = new (window.AudioContext || window.webkitAudioContext)();
-  if (ctx.state === 'suspended') ctx.resume();
+export async function init() {
+  if (!ctx) {
+    ctx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  if (ctx.state === 'suspended') {
+    await ctx.resume();
+  }
+  return ctx.state;
+}
+
+/**
+ * iOS Safari requires a user gesture to "unlock" audio.
+ * We play a short silent buffer to ensure the context is truly active.
+ */
+export async function unlock() {
+  const state = await init();
+  if (state === 'running') {
+    const buffer = ctx.createBuffer(1, 1, 22050);
+    const source = ctx.createBufferSource();
+    source.buffer = buffer;
+    source.connect(ctx.destination);
+    source.start(0);
+    // Be sure to resume if it somehow got suspended again
+    if (ctx.state === 'suspended') await ctx.resume();
+  }
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────

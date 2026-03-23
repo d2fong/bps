@@ -21,6 +21,10 @@ let previewRunning = false;
 let previewAnimation = null;
 
 // ─── Init ────────────────────────────────────────────────────────────────────
+// One-time gesture to unlock audio for Safari iOS
+window.addEventListener('click', () => {
+  audio.unlock();
+}, { once: true });
 
 // Bind sliders
 ui.bindSlider('inhale', 'inhale-val');
@@ -320,7 +324,7 @@ function startSession(focusText) {
   storage.saveLastUsed(vals);
 
   // Init audio
-  audio.init();
+  audio.unlock();
   audio.setProfile(vals.soundStyle);
 
   // Set focus text
